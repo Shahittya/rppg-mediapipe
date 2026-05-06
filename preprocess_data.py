@@ -13,7 +13,6 @@ Install first:  pip install mediapipe
 
 import os
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
-import mediapipe as mp
 import json
 import numpy as np
 import cv2
