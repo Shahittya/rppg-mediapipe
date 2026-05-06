@@ -20,10 +20,15 @@ from scipy.signal import detrend, butter, filtfilt
 # ── Block TensorFlow before MediaPipe loads (fixes Colab protobuf conflict) ──
 import sys
 import types
-sys.modules['tensorflow'] = types.ModuleType('tensorflow')
-sys.modules['tensorflow.tools'] = types.ModuleType('tensorflow.tools')
-sys.modules['tensorflow.tools.docs'] = types.ModuleType('tensorflow.tools.docs')
-sys.modules['tensorflow.tools.docs.doc_controls'] = types.ModuleType('tensorflow.tools.docs.doc_controls')
+
+# Block TensorFlow/protobuf conflict with MediaPipe
+_doc = types.ModuleType('tensorflow.tools.docs.doc_controls')
+_doc.do_not_generate_docs = lambda f: f  # mock the decorator
+_doc.do_not_build_docs    = lambda f: f
+sys.modules['tensorflow']                          = types.ModuleType('tensorflow')
+sys.modules['tensorflow.tools']                    = types.ModuleType('tensorflow.tools')
+sys.modules['tensorflow.tools.docs']               = types.ModuleType('tensorflow.tools.docs')
+sys.modules['tensorflow.tools.docs.doc_controls']  = _doc
 
 # ── MediaPipe ─────────────────────────────────────────────────────────
 from mediapipe.python.solutions import face_mesh as mp_face_mesh
