@@ -74,11 +74,20 @@ FOREHEAD_LANDMARKS = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323,
 LEFT_CHEEK_LANDMARKS  = [234, 93, 132, 58, 172, 136, 150, 149, 176, 148]
 RIGHT_CHEEK_LANDMARKS = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377]
 
-
 def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
     """
-    Extract forehead + cheek ROI using MediaPipe Face Mesh.
-    Stable version using full-face bounding box.
+    Stable upper-face ROI extraction for rPPG.
+
+    Keeps:
+    - forehead
+    - cheeks
+    - upper face
+
+    Removes most:
+    - hair
+    - chin
+    - neck
+    - background
 
     Returns:
         (72,72,3) float32 image in [0,1]
@@ -86,13 +95,13 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
 
     h, w = frame_bgr.shape[:2]
 
-    # Convert to RGB for MediaPipe
+    # Convert to RGB
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
-    # Detect landmarks
+    # FaceMesh detection
     results = face_mesh.process(frame_rgb)
 
-    # Fallback if no face detected
+    # Fallback if no face
     if not results.multi_face_landmarks:
         frame_out = cv2.resize(frame_bgr, target_size)
         return frame_out.astype(np.float32) / 255.0
@@ -100,109 +109,54 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
     lm = results.multi_face_landmarks[0].landmark
 
     # =========================================================
-    # STABLE FULL FACE SIZE ESTIMATION
+    # FULL FACE BOUNDING BOX FROM LANDMARKS
     # =========================================================
 
     xs = [int(p.x * w) for p in lm]
     ys = [int(p.y * h) for p in lm]
 
-    face_x1 = max(0, min(xs))
-    face_x2 = min(w, max(xs))
+    x1 = max(0, min(xs))
+    x2 = min(w, max(xs))
 
-    face_y1 = max(0, min(ys))
-    face_y2 = min(h, max(ys))
+    y1 = max(0, min(ys))
+    y2 = min(h, max(ys))
 
-    face_w = face_x2 - face_x1
-    face_h = face_y2 - face_y1
-
-    # Face center
-    face_cx = (face_x1 + face_x2) // 2
-    face_cy = (face_y1 + face_y2) // 2
+    face_w = x2 - x1
+    face_h = y2 - y1
 
     # =========================================================
-    # FOREHEAD ROI
+    # STABLE UPPER-FACE CROP
     # =========================================================
 
-    fh_x1 = max(0, face_cx - int(face_w * 0.25))
-    fh_x2 = min(w, face_cx + int(face_w * 0.25))
+    # Small horizontal padding
+    pad_x = int(face_w * 0.08)
 
-    fh_y1 = max(0, face_y1)
-    fh_y2 = min(h, face_y1 + int(face_h * 0.25))
+    crop_x1 = max(0, x1 - pad_x)
+    crop_x2 = min(w, x2 + pad_x)
 
-    # =========================================================
-    # CHEEK LANDMARK REGIONS
-    # =========================================================
+    # Keep upper 75% of face
+    crop_y1 = max(0, y1)
+    crop_y2 = min(h, y1 + int(face_h * 0.75))
 
-    LEFT_CHEEK_LANDMARKS = [
-        50, 101, 118, 119, 120,
-        123, 147, 187, 205,
-        207, 213, 216, 192
-    ]
-
-    RIGHT_CHEEK_LANDMARKS = [
-        280, 330, 347, 348, 349,
-        352, 376, 411, 425,
-        427, 433, 436, 416
-    ]
-
-    def landmark_box(indices, pad=10):
-        xs = [int(lm[i].x * w) for i in indices]
-        ys = [int(lm[i].y * h) for i in indices]
-
-        return (
-            max(0, min(xs) - pad),
-            max(0, min(ys) - pad),
-            min(w, max(xs) + pad),
-            min(h, max(ys) + pad)
-        )
-
-    lc = landmark_box(LEFT_CHEEK_LANDMARKS)
-    rc = landmark_box(RIGHT_CHEEK_LANDMARKS)
-
-    # =========================================================
-    # SAFE CROPPING
-    # =========================================================
-
-    def safe_crop(img, box):
-        x1, y1, x2, y2 = box
-
-        if x2 <= x1 or y2 <= y1:
-            return None
-
-        crop = img[y1:y2, x1:x2]
-
-        if crop.size == 0:
-            return None
-
-        crop = cv2.resize(crop, target_size)
-
-        return crop.astype(np.float32) / 255.0
-
-    forehead_roi = safe_crop(frame_bgr, (fh_x1, fh_y1, fh_x2, fh_y2))
-    left_cheek   = safe_crop(frame_bgr, lc)
-    right_cheek  = safe_crop(frame_bgr, rc)
-
-    # =========================================================
-    # WEIGHTED ROI FUSION
-    # =========================================================
-
-    roi_weight_pairs = [
-        (forehead_roi, 0.5),
-        (left_cheek,   0.25),
-        (right_cheek,  0.25),
-    ]
-
-    valid_pairs = [(r, w) for r, w in roi_weight_pairs if r is not None]
-
-    if not valid_pairs:
+    # Safety fallback
+    if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
         frame_out = cv2.resize(frame_bgr, target_size)
         return frame_out.astype(np.float32) / 255.0
 
-    total_weight = sum(w for _, w in valid_pairs)
+    # Crop ROI
+    roi = frame_bgr[crop_y1:crop_y2, crop_x1:crop_x2]
 
-    result = sum(r * (w / total_weight) for r, w in valid_pairs)
+    if roi.size == 0:
+        frame_out = cv2.resize(frame_bgr, target_size)
+        return frame_out.astype(np.float32) / 255.0
 
-    return np.clip(result, 0, 1).astype(np.float32)
+    # Resize
+    roi = cv2.resize(roi, target_size)
+
+    # Normalize
+    roi = roi.astype(np.float32) / 255.0
+
+    return roi
 
 
 # ─────────────────────────────────────────
