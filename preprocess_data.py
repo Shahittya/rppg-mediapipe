@@ -12,6 +12,8 @@ Install first:  pip install mediapipe
 """
 
 import os
+os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
+import mediapipe as mp
 import json
 import numpy as np
 import cv2
@@ -203,6 +205,7 @@ class RPPGDatasetMediaPipe:
         with mp_face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=1,
+            refine_landmarks=False,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         ) as face_mesh:
