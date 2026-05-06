@@ -78,68 +78,114 @@ RIGHT_CHEEK_LANDMARKS = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377]
 def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
     """
     Extract forehead + cheek ROI using MediaPipe Face Mesh.
-    Uses weighted average: forehead=0.5, left cheek=0.25, right cheek=0.25
-    Forehead weighted higher — denser superficial vasculature, less motion artifact.
-    Falls back to full-frame resize if face not detected.
+    Stable version using full-face bounding box.
 
-    Returns: resized ROI (target_size, target_size, 3) float32 in [0,1]
+    Returns:
+        (72,72,3) float32 image in [0,1]
     """
+
     h, w = frame_bgr.shape[:2]
+
+    # Convert to RGB for MediaPipe
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+    # Detect landmarks
     results = face_mesh.process(frame_rgb)
 
+    # Fallback if no face detected
     if not results.multi_face_landmarks:
-        # fallback: return full frame resized
         frame_out = cv2.resize(frame_bgr, target_size)
         return frame_out.astype(np.float32) / 255.0
 
     lm = results.multi_face_landmarks[0].landmark
 
-    # ── forehead box ──────────────────────────────────────────────────
-    # Use landmarks 10 (top center) and surrounding to get forehead region
-    nose_tip   = lm[1]
-    forehead_c = lm[10]
+    # =========================================================
+    # STABLE FULL FACE SIZE ESTIMATION
+    # =========================================================
 
-    fx = int(forehead_c.x * w)
-    fy = int(forehead_c.y * h)
-    nx = int(nose_tip.x * w)
-    ny = int(nose_tip.y * h)
+    xs = [int(p.x * w) for p in lm]
+    ys = [int(p.y * h) for p in lm]
 
-    face_h = abs(ny - fy) * 2  # rough face height estimate
-    face_w = face_h
+    face_x1 = max(0, min(xs))
+    face_x2 = min(w, max(xs))
 
-    # Forehead: top 25% of face
-    fh_x1 = max(0, fx - face_w // 4)
-    fh_x2 = min(w, fx + face_w // 4)
-    fh_y1 = max(0, fy - face_h // 10)
-    fh_y2 = min(h, fy + face_h // 6)
+    face_y1 = max(0, min(ys))
+    face_y2 = min(h, max(ys))
 
-    # ── cheek boxes ───────────────────────────────────────────────────
+    face_w = face_x2 - face_x1
+    face_h = face_y2 - face_y1
+
+    # Face center
+    face_cx = (face_x1 + face_x2) // 2
+    face_cy = (face_y1 + face_y2) // 2
+
+    # =========================================================
+    # FOREHEAD ROI
+    # =========================================================
+
+    fh_x1 = max(0, face_cx - int(face_w * 0.25))
+    fh_x2 = min(w, face_cx + int(face_w * 0.25))
+
+    fh_y1 = max(0, face_y1)
+    fh_y2 = min(h, face_y1 + int(face_h * 0.25))
+
+    # =========================================================
+    # CHEEK LANDMARK REGIONS
+    # =========================================================
+
+    LEFT_CHEEK_LANDMARKS = [
+        50, 101, 118, 119, 120,
+        123, 147, 187, 205,
+        207, 213, 216, 192
+    ]
+
+    RIGHT_CHEEK_LANDMARKS = [
+        280, 330, 347, 348, 349,
+        352, 376, 411, 425,
+        427, 433, 436, 416
+    ]
+
     def landmark_box(indices, pad=10):
         xs = [int(lm[i].x * w) for i in indices]
         ys = [int(lm[i].y * h) for i in indices]
-        return (max(0, min(xs) - pad), max(0, min(ys) - pad),
-                min(w, max(xs) + pad), min(h, max(ys) + pad))
+
+        return (
+            max(0, min(xs) - pad),
+            max(0, min(ys) - pad),
+            min(w, max(xs) + pad),
+            min(h, max(ys) + pad)
+        )
 
     lc = landmark_box(LEFT_CHEEK_LANDMARKS)
     rc = landmark_box(RIGHT_CHEEK_LANDMARKS)
 
-    # ── crop each region and resize to target ─────────────────────────
+    # =========================================================
+    # SAFE CROPPING
+    # =========================================================
+
     def safe_crop(img, box):
         x1, y1, x2, y2 = box
+
         if x2 <= x1 or y2 <= y1:
             return None
+
         crop = img[y1:y2, x1:x2]
+
         if crop.size == 0:
             return None
-        return cv2.resize(crop, target_size).astype(np.float32) / 255.0
+
+        crop = cv2.resize(crop, target_size)
+
+        return crop.astype(np.float32) / 255.0
 
     forehead_roi = safe_crop(frame_bgr, (fh_x1, fh_y1, fh_x2, fh_y2))
     left_cheek   = safe_crop(frame_bgr, lc)
     right_cheek  = safe_crop(frame_bgr, rc)
 
-    # Weighted average: forehead=0.5, left cheek=0.25, right cheek=0.25
-    # Forehead has strongest pulse signal and least motion artifact
+    # =========================================================
+    # WEIGHTED ROI FUSION
+    # =========================================================
+
     roi_weight_pairs = [
         (forehead_roi, 0.5),
         (left_cheek,   0.25),
@@ -149,10 +195,11 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
     valid_pairs = [(r, w) for r, w in roi_weight_pairs if r is not None]
 
     if not valid_pairs:
-        return cv2.resize(frame_bgr, target_size).astype(np.float32) / 255.0
+        frame_out = cv2.resize(frame_bgr, target_size)
+        return frame_out.astype(np.float32) / 255.0
 
-    # Renormalize weights if some ROIs failed detection
     total_weight = sum(w for _, w in valid_pairs)
+
     result = sum(r * (w / total_weight) for r, w in valid_pairs)
 
     return np.clip(result, 0, 1).astype(np.float32)
