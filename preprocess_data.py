@@ -17,11 +17,17 @@ import numpy as np
 import cv2
 from scipy.signal import detrend, butter, filtfilt
 
-# ── MediaPipe (install if needed: pip install mediapipe) ──────────────
-import mediapipe as mp
+# ── Block TensorFlow before MediaPipe loads (fixes Colab protobuf conflict) ──
+import sys
+import types
+sys.modules['tensorflow'] = types.ModuleType('tensorflow')
+sys.modules['tensorflow.tools'] = types.ModuleType('tensorflow.tools')
+sys.modules['tensorflow.tools.docs'] = types.ModuleType('tensorflow.tools.docs')
+sys.modules['tensorflow.tools.docs.doc_controls'] = types.ModuleType('tensorflow.tools.docs.doc_controls')
 
-mp_face_detection = mp.solutions.face_detection
-mp_face_mesh      = mp.solutions.face_mesh
+# ── MediaPipe ─────────────────────────────────────────────────────────
+from mediapipe.python.solutions import face_mesh as mp_face_mesh
+from mediapipe.python.solutions import face_detection as mp_face_detection
 
 
 # ─────────────────────────────────────────
@@ -266,9 +272,14 @@ class RPPGDatasetMediaPipe:
 
         return apps, mots, sigs
 
+
+# ─────────────────────────────────────────
+# Main preprocessing script
+# ─────────────────────────────────────────
+
 if __name__ == "__main__":
-    DATA_PATH = "/content/drive/MyDrive/FYP/data/data/videos"
-    SAVE_PATH = "/content/drive/MyDrive/FYP/processed_mediapipe" 
+    DATA_PATH = "/content/drive/MyDrive/shared/FYP/data/data/videos"
+    SAVE_PATH = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"  # ← separate folder!
     os.makedirs(SAVE_PATH, exist_ok=True)
 
     dataset = RPPGDatasetMediaPipe(DATA_PATH)
