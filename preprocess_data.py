@@ -167,6 +167,9 @@ class RPPGDatasetMediaPipe:
         self.window_size = window_size
         self.stride      = stride
         self.samples     = self._load_samples()
+    
+    def __len__(self):                   
+        return len(self.samples)
 
     def _load_samples(self):
         """
