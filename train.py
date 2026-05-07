@@ -18,7 +18,7 @@ class NegPearsonLoss(nn.Module):
 torch.backends.cudnn.benchmark = True
 
 device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DATA_PATH = "/content/drive/MyDrive/FYP/processed_mediapipe"
+DATA_PATH = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
 
 dataset    = RPPGFastDataset(DATA_PATH)
 train_size = int(0.8 * len(dataset))
@@ -160,7 +160,7 @@ for epoch in range(EPOCHS):
 
     if val_avg < best_val_loss:
         best_val_loss = val_avg
-        torch.save(model.state_dict(), "best_model_B.pth")
+        torch.save(model.state_dict(), "best_model_mediapipe.pth")
         print(f"  ✓ Best saved (val={val_avg:.4f})")
 
 print(f"\nDone. Best val loss: {best_val_loss:.4f}")

@@ -290,7 +290,7 @@ class RPPGDatasetMediaPipe:
 
 if __name__ == "__main__":
     DATA_PATH = "/content/drive/MyDrive/shared/FYP/data/data/videos"
-    SAVE_PATH = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"  # ← separate folder!
+    SAVE_PATH = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"  
     os.makedirs(SAVE_PATH, exist_ok=True)
 
     dataset = RPPGDatasetMediaPipe(DATA_PATH)
