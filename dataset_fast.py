@@ -24,14 +24,14 @@ class RPPGFastDataset(Dataset):
         appearance = appearance.astype(np.float32)
         motion     = motion.astype(np.float32)
 
-        # Appearance: [0,1] → [-1,1]  (centers distribution for conv)
+        # Appearance: [0,1] → [-1,1]  
         appearance = (appearance - 0.5) / 0.5
 
         # Motion: amplify weak pulse signal
         # Use *10 not *100 — BatchNorm inside model handles scale from here
         motion = motion * 10.0
 
-        # Safety: remove any NaN/Inf
+        # remove any NaN/Inf
         if not np.isfinite(signal).all():
             signal = np.nan_to_num(signal)
         if not np.isfinite(appearance).all():

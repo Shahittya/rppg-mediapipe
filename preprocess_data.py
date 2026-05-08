@@ -1,16 +1,3 @@
-"""
-preprocess_data_mediapipe.py
-
-Improvements over preprocess_data.py:
-  1. Subject-name mapped output:  subject_001.npz → subject_001.npz  (not sample_0.npz)
-  2. MediaPipe face detection     (replaces unreliable Haar cascade)
-  3. Forehead + cheek ROI         (richer pulse signal than full face crop)
-  4. Same pipeline structure      (drop-in replacement — train.py unchanged)
-
-Run this in a SEPARATE Colab tab while training runs in another.
-Install first:  pip install mediapipe
-"""
-
 import os
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
 import json
@@ -18,35 +5,30 @@ import numpy as np
 import cv2
 from scipy.signal import detrend, butter, filtfilt
 
-# ── Block TensorFlow before MediaPipe loads (fixes Colab protobuf conflict) ──
+#Block TensorFlow before MediaPipe loads 
 import sys
 import types
 
 # Block TensorFlow/protobuf conflict with MediaPipe
 _doc = types.ModuleType('tensorflow.tools.docs.doc_controls')
-_doc.do_not_generate_docs = lambda f: f  # mock the decorator
+_doc.do_not_generate_docs = lambda f: f  
 _doc.do_not_build_docs    = lambda f: f
 sys.modules['tensorflow']                          = types.ModuleType('tensorflow')
 sys.modules['tensorflow.tools']                    = types.ModuleType('tensorflow.tools')
 sys.modules['tensorflow.tools.docs']               = types.ModuleType('tensorflow.tools.docs')
 sys.modules['tensorflow.tools.docs.doc_controls']  = _doc
 
-# ── MediaPipe ─────────────────────────────────────────────────────────
+#MediaPipe 
 from mediapipe.python.solutions import face_mesh as mp_face_mesh
 from mediapipe.python.solutions import face_detection as mp_face_detection
 
-
-# ─────────────────────────────────────────
 # Signal helpers  (unchanged from original)
-# ─────────────────────────────────────────
-
 def _bandpass(signal, fs, low=0.7, high=3.0):
     if len(signal) < 30:
         return signal
     nyq = 0.5 * fs
     b, a = butter(3, [low / nyq, high / nyq], btype='band')
     return filtfilt(b, a, signal)
-
 
 def _process(signal, fs):
     if len(signal) > 10:
@@ -59,13 +41,6 @@ def _normalise(signal):
     return (signal - np.mean(signal)) / std if std > 1e-6 else signal
 
 
-# ─────────────────────────────────────────
-# ROI extraction helpers
-# ─────────────────────────────────────────
-
-# MediaPipe Face Mesh landmark indices
-# Forehead: landmarks around top of face
-# Cheeks: left and right cheek regions
 FOREHEAD_LANDMARKS = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323,
                       361, 288, 397, 365, 379, 378, 400, 377, 152, 148,
                       176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
@@ -75,23 +50,6 @@ LEFT_CHEEK_LANDMARKS  = [234, 93, 132, 58, 172, 136, 150, 149, 176, 148]
 RIGHT_CHEEK_LANDMARKS = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377]
 
 def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
-    """
-    Stable upper-face ROI extraction for rPPG.
-
-    Keeps:
-    - forehead
-    - cheeks
-    - upper face
-
-    Removes most:
-    - hair
-    - chin
-    - neck
-    - background
-
-    Returns:
-        (72,72,3) float32 image in [0,1]
-    """
 
     h, w = frame_bgr.shape[:2]
 
@@ -108,9 +66,9 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
 
     lm = results.multi_face_landmarks[0].landmark
 
-    # =========================================================
+
     # FULL FACE BOUNDING BOX FROM LANDMARKS
-    # =========================================================
+
 
     xs = [int(p.x * w) for p in lm]
     ys = [int(p.y * h) for p in lm]
@@ -124,9 +82,9 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
     face_w = x2 - x1
     face_h = y2 - y1
 
-    # =========================================================
+
     # STABLE UPPER-FACE CROP
-    # =========================================================
+
 
     # Small horizontal padding
     pad_x = int(face_w * 0.08)
@@ -158,11 +116,7 @@ def extract_roi_mediapipe(frame_bgr, face_mesh, target_size=(72, 72)):
 
     return roi
 
-
-# ─────────────────────────────────────────
 # Main extraction class
-# ─────────────────────────────────────────
-
 class RPPGDatasetMediaPipe:
     def __init__(self, root_dir, window_size=128, stride=32):
         self.root_dir    = root_dir
@@ -174,10 +128,6 @@ class RPPGDatasetMediaPipe:
         return len(self.samples)
 
     def _load_samples(self):
-        """
-        Returns list of (subject_name, video_path, json_path)
-        subject_name is the folder name → used for .npz filename mapping
-        """
         samples = []
         for subject in sorted(os.listdir(self.root_dir)):
             sp = os.path.join(self.root_dir, subject)
@@ -192,7 +142,7 @@ class RPPGDatasetMediaPipe:
                     json_f = os.path.join(sp, f)
 
             if video and json_f:
-                samples.append((subject, video, json_f))  # ← subject name included
+                samples.append((subject, video, json_f))  # subject name included
 
         print(f"Found {len(samples)} subjects: {[s[0] for s in samples[:5]]}...")
         return samples
@@ -284,9 +234,9 @@ class RPPGDatasetMediaPipe:
         return apps, mots, sigs
 
 
-# ─────────────────────────────────────────
+
 # Main preprocessing script
-# ─────────────────────────────────────────
+
 
 if __name__ == "__main__":
     DATA_PATH = "/content/drive/MyDrive/shared/FYP/data/data/videos"
@@ -300,7 +250,7 @@ if __name__ == "__main__":
     done = skipped = failed = 0
 
     for subject_name, video_path, json_path in dataset.samples:
-        # ── SUBJECT-MAPPED filename ─────────────────────────────────
+        # ── SUBJECT-MAPPED filename 
         save_file = os.path.join(SAVE_PATH, f"{subject_name}.npz")
 
         if os.path.exists(save_file):
@@ -335,7 +285,7 @@ if __name__ == "__main__":
                 appearance=app_arr,
                 motion=mot_arr,
                 signal=sig_arr,
-                subject=subject_name   # ← also store name inside npz
+                subject=subject_name   # also store name inside npz
             )
             print(f"  Saved → {subject_name}.npz | windows={len(apps)} | sig_std={sig_arr.std():.3f}")
             done += 1

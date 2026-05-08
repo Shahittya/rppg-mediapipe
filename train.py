@@ -4,9 +4,10 @@ import torch.nn as nn
 
 from dataset_fast import RPPGFastDataset
 from models.deepphys.model import DeepPhysLSTM
-
-
-# ── Pearson Loss ───────────────────────────────
+torch.manual_seed(42)
+import numpy as np
+np.random.seed(42)
+#Pearson Loss
 class NegPearsonLoss(nn.Module):
     def forward(self, pred, label):
         pred   = pred - pred.mean()
@@ -32,7 +33,7 @@ train_loader = DataLoader(train_ds, batch_size=1, shuffle=True,  num_workers=2, 
 val_loader   = DataLoader(val_ds,   batch_size=1, shuffle=False, num_workers=2, pin_memory=True)
 
 
-# ── Model ─────────────────────────────────────
+#Model 
 model = DeepPhysLSTM().to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
@@ -51,11 +52,11 @@ scaler = torch.amp.GradScaler('cuda')
 CHUNK_SIZE = 3
 
 
-# ── Training Loop ─────────────────────────────
+# Training Loop
 for epoch in range(EPOCHS):
     print(f"\n===== Epoch {epoch+1}/{EPOCHS} =====")
 
-    # ── TRAIN ────────────────────────────────
+    #TRAIN 
     model.train()
     epoch_loss, count = 0.0, 0
 
@@ -114,7 +115,7 @@ for epoch in range(EPOCHS):
     print(f"  Train loss: {train_avg:.4f}")
 
 
-    # ── VALIDATION ───────────────────────────
+    #VALIDATION 
     model.eval()
     val_loss, val_count = 0.0, 0
 
@@ -161,6 +162,6 @@ for epoch in range(EPOCHS):
     if val_avg < best_val_loss:
         best_val_loss = val_avg
         torch.save(model.state_dict(), "best_model_mediapipe.pth")
-        print(f"  ✓ Best saved (val={val_avg:.4f})")
+        print(f"Best saved (val={val_avg:.4f})")
 
 print(f"\nDone. Best val loss: {best_val_loss:.4f}")
