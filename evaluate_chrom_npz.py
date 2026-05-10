@@ -1,12 +1,4 @@
-"""
-evaluate_chrom.py
 
-Runs CHROM on the same val subjects as your DL model.
-Uses identical split (seed=42) for fair comparison.
-
-Place in: rppg-mediapipe-main/  (same folder as train.py)
-Run:      !python evaluate_chrom.py
-"""
 
 import os
 import torch

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.signal import detrend, butter, filtfilt
 
 
-def _bandpass(signal, fs=30, low=0.7, high=4.0):
+def _bandpass(signal, fs=30, low=0.7, high=3.0):
     signal = np.array(signal, dtype=np.float32)
     if len(signal) < 30:
         return signal
