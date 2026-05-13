@@ -24,20 +24,14 @@ from dataset_fast import RPPGFastDataset
 from models.deepphys.model import DeepPhysLSTM
 from utils.heart_rate import calculate_heart_rate
 
-# ── Config ────────────────────────────────────────────────────────────
-#DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
-#MODEL_PATH = "best_model_mediapipe.pth"
-#PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots"
-
-DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed1"
-MODEL_PATH = "best_model_2x2.pth"
-PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots_2x2"
+DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
+MODEL_PATH = "best_model_mediapipe.pth"
+PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots"
 FPS        = 30
 SEED       = 42
 
 os.makedirs(PLOT_PATH, exist_ok=True)
 
-# ── Reproducible split — must match training ──────────────────────────
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 
@@ -45,7 +39,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
 
-# ── Helper ────────────────────────────────────────────────────────────
 
 def pearson_r(pred, gt):
     p = pred - pred.mean()
@@ -54,7 +47,7 @@ def pearson_r(pred, gt):
     return float((p * g).sum() / denom)
 
 
-# ── Load dataset + val split ──────────────────────────────────────────
+#Load dataset + val split
 dataset    = RPPGFastDataset(DATA_PATH)
 train_size = int(0.8 * len(dataset))
 val_size   = len(dataset) - train_size
@@ -68,14 +61,14 @@ val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=2)
 print(f"Val subjects: {len(val_ds)}\n")
 
 
-# ── Load model ────────────────────────────────────────────────────────
+#Load model 
 model = DeepPhysLSTM().to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.eval()
 print(f"Loaded: {MODEL_PATH}\n")
 
 
-# ── Evaluate ──────────────────────────────────────────────────────────
+# Evaluate
 all_pred_bpm = []
 all_gt_bpm   = []
 all_pearson  = []
@@ -101,7 +94,7 @@ with torch.no_grad():
             with torch.amp.autocast('cuda'):
                 pred = model(a, m).cpu().numpy()
 
-            # ── BPM with continuity tracking ──────────────────────────
+            # ── BPM with continuity tracking 
             p_bpm, _, _ = calculate_heart_rate(pred, FPS, prev_bpm)
             g_bpm, _, _ = calculate_heart_rate(s,    FPS, None)
 
@@ -177,7 +170,7 @@ print(f"  EfficientPhys (UBFC):  ~5.3 BPM")
 print(f"  CHROM (traditional):   ~7.0 BPM")
 
 
-# ── Plot 1: Waveform comparison ───────────────────────────────────────
+# Plot 1: Waveform comparison 
 n = len(waveform_samples)
 fig, axes = plt.subplots(n, 1, figsize=(14, 3.5 * n))
 if n == 1:
@@ -209,7 +202,7 @@ plt.show()
 print(f"\nSaved: {p1}")
 
 
-# ── Plot 2: BPM scatter ───────────────────────────────────────────────
+# Plot 2: BPM scatter 
 fig, ax = plt.subplots(figsize=(7, 7))
 ax.scatter(all_gt, all_pred, alpha=0.5, color="#673AB7", s=30, label="Windows")
 
@@ -235,7 +228,7 @@ plt.show()
 print(f"Saved: {p2}")
 
 
-# ── Plot 3: Per-subject MAE bar chart ────────────────────────────────
+# Plot 3: Per-subject MAE bar chart
 fig, ax = plt.subplots(figsize=(12, 5))
 
 ids    = [r["id"]  for r in subject_rows]

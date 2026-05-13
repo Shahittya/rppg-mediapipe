@@ -27,9 +27,9 @@ class DeepPhysLSTM(nn.Module):
             nn.Sigmoid()
         )
 
-        # LSTM — input_size=256 because (2,2) pool gives 2*2*64=256 features
+        # LSTM — input_size=64 because (1,1) pool gives 1*1*64=64 features
         self.lstm = nn.LSTM(
-            input_size=256,
+            input_size=64,
             hidden_size=128,
             num_layers=1,
             batch_first=True
@@ -53,18 +53,18 @@ class DeepPhysLSTM(nn.Module):
         appearance = appearance.permute(0, 3, 1, 2)
         motion     = motion.permute(0, 3, 1, 2)
 
-        # CNN feature extraction
+        # CNN feature extraction — each stream gets its correct input
         motion_feat     = self.motion_stream(motion)         # (T, 64, H, W)
         appearance_feat = self.appearance_stream(appearance) # (T, 64, H, W) attention mask
 
-        # Attended fusion
+        # Attended fusion: motion features weighted by appearance attention
         x = motion_feat * appearance_feat  # (T, 64, H, W)
 
-        # (2,2) pool → keeps more spatial info → (T, 64, 2, 2)
-        x = F.adaptive_avg_pool2d(x, (2, 2))
-        x = x.reshape(x.size(0), -1)  # (T, 256)
+        # Global average pool → (T, 64, 1, 1)
+        x = F.adaptive_avg_pool2d(x, (1, 1))
+        x = x.view(x.size(0), -1)  # (T, 64)
 
-        # Add batch dimension → (1, T, 256)
+        # Add batch dimension → (1, T, 64)
         x = x.unsqueeze(0)
 
         # LSTM → (1, T, 128)
