@@ -42,7 +42,7 @@ from utils.heart_rate import calculate_heart_rate
 # ── Config ────────────────────────────────────────────────────────────
 VIDEO_PATH = "/content/drive/MyDrive/shared/FYP/data/data/videos"
 NPZ_PATH   = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
-PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots"
+PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/chrom_json"
 FPS        = 30
 SEED       = 42
 
