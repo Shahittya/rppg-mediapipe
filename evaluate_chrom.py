@@ -47,8 +47,6 @@ FPS        = 30
 SEED       = 42
 
 os.makedirs(PLOT_PATH, exist_ok=True)
-
-# ── Same val split as training ────────────────────────────────────────
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 
@@ -66,8 +64,6 @@ val_files   = [dataset.files[i] for i in val_ds.indices]
 val_subjects = [os.path.splitext(os.path.basename(f))[0] for f in val_files]
 print(f"Val subjects ({len(val_subjects)}): {val_subjects[:5]}...")
 
-
-# ── Signal helpers ────────────────────────────────────────────────────
 
 def bandpass(signal, fs, low=0.7, high=3.0):
     if len(signal) < 30:
@@ -89,7 +85,6 @@ def get_bpm(signal, prev_bpm=None):
     return bpm if bpm > 0 else None
 
 
-# ── Load GT BPM from JSON ─────────────────────────────────────────────
 
 def load_gt_from_json(json_path):
     """Returns (gt_bpm, gt_signal, fs_ppg) from JSON file."""
@@ -124,7 +119,7 @@ def load_gt_from_json(json_path):
     return None, None, None
 
 
-# ── Extract RGB from video using MediaPipe face ROI ───────────────────
+# Extract RGB from video using MediaPipe face ROI 
 
 def extract_rgb_from_video(video_path, target_frames=None):
     """
@@ -190,7 +185,7 @@ def extract_rgb_from_video(video_path, target_frames=None):
     return np.array(r_list), np.array(g_list), np.array(b_list)
 
 
-# ── Run CHROM on each val subject ─────────────────────────────────────
+# Run CHROM on each val subject 
 
 all_chrom_bpm = []
 all_gt_bpm    = []
@@ -219,13 +214,13 @@ for subj_name in val_subjects:
 
     print(f"[PROCESS] {subj_name}")
 
-    # ── GT from JSON ──────────────────────────────────────────────────
+    #  GT from JSON 
     gt_bpm, gt_sig, fs_ppg = load_gt_from_json(json_file)
     if gt_bpm is None:
         print(f"  No GT signal")
         continue
 
-    # ── CHROM from raw video ──────────────────────────────────────────
+    # ── CHROM from raw video 
     try:
         r, g, b = extract_rgb_from_video(video_file)
     except Exception as e:
