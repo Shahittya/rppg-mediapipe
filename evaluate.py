@@ -25,9 +25,13 @@ from models.deepphys.model import DeepPhysLSTM
 from utils.heart_rate import calculate_heart_rate
 
 # ── Config ────────────────────────────────────────────────────────────
-DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
-MODEL_PATH = "best_model_mediapipe.pth"
-PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots"
+#DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed_mediapipe"
+#MODEL_PATH = "best_model_mediapipe.pth"
+#PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots"
+
+DATA_PATH  = "/content/drive/MyDrive/shared/FYP/processed1"
+MODEL_PATH = "best_model_baseLine.pth"
+PLOT_PATH  = "/content/drive/MyDrive/shared/FYP/eval_plots_baseline"
 FPS        = 30
 SEED       = 42
 
