@@ -12,16 +12,7 @@ def _bandpass(signal, fs=30, low=0.7, high=3.0):
 
 
 def chrom_method(r, g, b, fs=30):
-    """
-    FIX: added detrend + bandpass after computing the CHROM signal.
 
-    Old code returned the raw CHROM output with no filtering.
-    Low-frequency skin colour drift caused the raw CHROM signal to have
-    very high SNR (strong DC + slow drift dominates full-spectrum power),
-    so select_best() always picked CHROM even when it was noisier in the
-    actual heart rate band.  Filtering removes that drift so SNR comparison
-    is fair.
-    """
     r = np.array(r, dtype=np.float32)
     g = np.array(g, dtype=np.float32)
     b = np.array(b, dtype=np.float32)
