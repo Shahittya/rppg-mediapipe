@@ -62,7 +62,7 @@ class DeepPhysLSTM(nn.Module):
 
         # (2,2) pool → keeps more spatial info → (T, 64, 2, 2)
         x = F.adaptive_avg_pool2d(x, (2, 2))
-        x = x.view(x.size(0), -1)  # (T, 256)
+        x = x.reshape(x.size(0), -1)  # (T, 256)
 
         # Add batch dimension → (1, T, 256)
         x = x.unsqueeze(0)
